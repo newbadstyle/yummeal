@@ -31,7 +31,7 @@ class _LoginPageState extends State<LoginPage> {
             children: [
               const SizedBox(height: 20),
 
-              // Logo Nutrinova
+              // Logo
               Text(
                 '✨ Yummeal ✨',
                 style: GoogleFonts.margarine(
@@ -45,13 +45,13 @@ class _LoginPageState extends State<LoginPage> {
               const SizedBox(height: 150),
 
               // Tytuł
-              const Text(
+              Text(
                 'Welcome Back!',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 32,
+                style: GoogleFonts.dmSerifText(
+                  fontSize: 35,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF1A1A1A),
+                  color: const Color(0xFF1A1A1A),
                   height: 1.2,
                 ),
               ),
