@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'login_page.dart';
 
 class WelcomePage extends StatelessWidget {
   const WelcomePage({Key? key}) : super(key: key);
@@ -51,10 +52,10 @@ class WelcomePage extends StatelessWidget {
                   ),
                   const SizedBox(height: 25),
                   // Główny tytuł
-                  const Text(
+                  Text(
                     'Unlock\nAI-Powered\nCalorie Tracking',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: GoogleFonts.dmSerifText(
                       fontSize: 35,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF1A1A1A),
@@ -91,7 +92,12 @@ class WelcomePage extends StatelessWidget {
                   // Link Login
                   TextButton(
                     onPressed: () {
-                      // Akcja logowania
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const LoginPage(),
+                        ),
+                      );
                     },
                     child: const Text(
                       'Login',
