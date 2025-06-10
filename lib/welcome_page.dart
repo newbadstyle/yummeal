@@ -55,7 +55,7 @@ class WelcomePage extends StatelessWidget {
                   Text(
                     'Unlock\nAI-Powered\nCalorie Tracking',
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.dmSerifText(
+                    style: GoogleFonts.poppins(
                       fontSize: 35,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF1A1A1A),

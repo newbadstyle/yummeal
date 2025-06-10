@@ -48,7 +48,7 @@ class _LoginPageState extends State<LoginPage> {
               Text(
                 'Welcome Back!',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.dmSerifText(
+                style: GoogleFonts.poppins(
                   fontSize: 35,
                   fontWeight: FontWeight.bold,
                   color: const Color(0xFF1A1A1A),
