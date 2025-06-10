@@ -12,12 +12,11 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Nutrinova',
+      title: 'Yummeal',
       debugShowCheckedModeBanner: false,
 
-      // Tema aplikacji
       theme: ThemeData(
-        // Główny kolor aplikacji (zielony jak w badge)
+        // Główny kolor aplikacji
         primarySwatch: Colors.green,
         primaryColor: const Color(0xFF4CAF50),
 
@@ -55,7 +54,6 @@ class MyApp extends StatelessWidget {
           style: TextButton.styleFrom(foregroundColor: const Color(0xFF666666)),
         ),
 
-        // Material 3 design
         useMaterial3: true,
       ),
 
