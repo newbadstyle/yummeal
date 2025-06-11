@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'welcome_page.dart';
+import 'login_page.dart';
+import 'register_page.dart';
+import 'home_page.dart';
 
 void main() {
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +29,7 @@ class MyApp extends StatelessWidget {
           brightness: Brightness.light,
         ),
 
-        // Konfiguracja AppBar (na pózniej)
+        // Konfiguracja AppBar (na później)
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.transparent,
           elevation: 0,
@@ -68,8 +71,16 @@ class MyApp extends StatelessWidget {
         );
       },
 
-      // Strona główna
-      home: const WelcomePage(),
+      // Routes configuration
+      routes: {
+        '/': (context) => const WelcomePage(),
+        '/login': (context) => const LoginPage(),
+        '/register': (context) => const RegisterPage(),
+        '/home': (context) => const HomePage(),
+      },
+
+      // Initial route
+      initialRoute: '/',
     );
   }
 }

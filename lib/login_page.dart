@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({Key? key}) : super(key: key);
+  const LoginPage({super.key});
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -18,6 +18,43 @@ class _LoginPageState extends State<LoginPage> {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  void _handleLogin() {
+    // Implementacja logiki logowania
+    String email = _emailController.text.trim();
+    String password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please fill in all fields'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a valid email address'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Symulacja logowania - w rzeczywistej aplikacji tutaj będzie wywołanie API
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Login successful!'),
+        backgroundColor: Colors.green,
+      ),
+    );
+
+    // Nawigacja do strony głównej
+    Navigator.pushReplacementNamed(context, '/home');
   }
 
   @override
@@ -156,6 +193,13 @@ class _LoginPageState extends State<LoginPage> {
                 child: TextButton(
                   onPressed: () {
                     // Akcja "Forgot Password"
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Forgot password functionality will be implemented',
+                        ),
+                      ),
+                    );
                   },
                   child: const Text(
                     'Forgot Password?',
@@ -175,9 +219,7 @@ class _LoginPageState extends State<LoginPage> {
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
-                  onPressed: () {
-                    // Akcja logowania
-                  },
+                  onPressed: _handleLogin,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,
                     foregroundColor: Colors.white,
@@ -205,7 +247,8 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   TextButton(
                     onPressed: () {
-                      // Akcja przejścia do rejestracji
+                      // Navigate to register page using named route
+                      Navigator.pushNamed(context, '/register');
                     },
                     style: TextButton.styleFrom(
                       padding: EdgeInsets.zero,
@@ -231,7 +274,11 @@ class _LoginPageState extends State<LoginPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   TextButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Terms & Conditions')),
+                      );
+                    },
                     child: const Text(
                       'T&Cs',
                       style: TextStyle(color: Color(0xFF999999), fontSize: 14),
@@ -242,7 +289,11 @@ class _LoginPageState extends State<LoginPage> {
                     style: TextStyle(color: Color(0xFF999999), fontSize: 14),
                   ),
                   TextButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Privacy Policy')),
+                      );
+                    },
                     child: const Text(
                       'Privacy Policy',
                       style: TextStyle(color: Color(0xFF999999), fontSize: 14),
