@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:yummeal/auth_service.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -13,8 +14,11 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
+  final _authService = AuthService(); // Dodane
+
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
+  bool _isLoading = false; // Dodane
 
   @override
   void dispose() {
@@ -24,7 +28,7 @@ class _RegisterPageState extends State<RegisterPage> {
     super.dispose();
   }
 
-  void _handleSignUp() {
+  void _handleSignUp() async {
     // Validate inputs
     if (_emailController.text.trim().isEmpty) {
       _showSnackBar('Please enter your email');
@@ -58,11 +62,52 @@ class _RegisterPageState extends State<RegisterPage> {
       return;
     }
 
-    // Symulacja rejestracji - w rzeczywistej aplikacji tutaj będzie wywołanie API
-    _showSnackBar('Registration successful!', isSuccess: true);
+    // Rozpocznij ładowanie
+    setState(() {
+      _isLoading = true;
+    });
 
-    // Navigate to home page after successful registration
-    Navigator.pushReplacementNamed(context, '/home');
+    try {
+      // Wywołaj rzeczywistą rejestrację przez API
+
+      // Sprawdź czy widget jest nadal zamontowany
+      if (!mounted) return;
+
+      // Pobierz dane użytkownika po rejestracji
+      final userData = await _authService.getUserData();
+      final uid = userData['uid'];
+
+      _showSnackBar('Registration successful! Your UID: $uid', isSuccess: true);
+
+      // Po udanej rejestracji możesz:
+      // 1. Automatycznie zalogować użytkownika (jeśli API to robi)
+      // 2. Lub przekierować do logowania
+
+      // Sprawdź czy użytkownik jest już zalogowany po rejestracji
+      final isLoggedIn = await _authService.isLoggedIn();
+
+      if (isLoggedIn) {
+        // Jeśli API automatycznie loguje po rejestracji
+        Navigator.pushReplacementNamed(context, '/home');
+      } else {
+        // Jeśli nie, przekieruj do logowania
+        Navigator.pushReplacementNamed(context, '/login');
+      }
+    } catch (e) {
+      // Obsługa błędów
+      if (!mounted) return;
+
+      _showSnackBar(
+        'Registration failed: ${e.toString().replaceAll('Exception: ', '')}',
+      );
+    } finally {
+      // Zakończ ładowanie
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   void _showSnackBar(String message, {bool isSuccess = false}) {
@@ -133,6 +178,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 child: TextField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
+                  enabled: !_isLoading, // Wyłącz podczas ładowania
                   decoration: const InputDecoration(
                     hintText: 'Email',
                     hintStyle: TextStyle(color: Colors.grey, fontSize: 16),
@@ -156,6 +202,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 child: TextField(
                   controller: _passwordController,
                   obscureText: !_isPasswordVisible,
+                  enabled: !_isLoading, // Wyłącz podczas ładowania
                   decoration: InputDecoration(
                     hintText: 'Password',
                     hintStyle: const TextStyle(
@@ -195,6 +242,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 child: TextField(
                   controller: _confirmPasswordController,
                   obscureText: !_isConfirmPasswordVisible,
+                  enabled: !_isLoading, // Wyłącz podczas ładowania
                   decoration: InputDecoration(
                     hintText: 'Confirm Password',
                     hintStyle: const TextStyle(
@@ -231,7 +279,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
-                  onPressed: _handleSignUp,
+                  onPressed: _isLoading ? null : _handleSignUp,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,
                     shape: RoundedRectangleBorder(
@@ -239,14 +287,24 @@ class _RegisterPageState extends State<RegisterPage> {
                     ),
                     elevation: 0,
                   ),
-                  child: const Text(
-                    'Sign Up',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  child:
+                      _isLoading
+                          ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                          : const Text(
+                            'Sign Up',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                 ),
               ),
 
@@ -261,14 +319,18 @@ class _RegisterPageState extends State<RegisterPage> {
                     style: TextStyle(color: Colors.grey, fontSize: 14),
                   ),
                   GestureDetector(
-                    onTap: () {
-                      // Navigate back to login page
-                      Navigator.pushNamed(context, '/login');
-                    },
-                    child: const Text(
+                    onTap:
+                        _isLoading
+                            ? null
+                            : () {
+                              // Navigate back to login page
+                              Navigator.pushNamed(context, '/login');
+                            },
+                    child: Text(
                       'Sign In',
                       style: TextStyle(
-                        color: Color(0xFF4CAF50),
+                        color:
+                            _isLoading ? Colors.grey : const Color(0xFF4CAF50),
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),

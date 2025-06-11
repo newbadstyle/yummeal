@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:yummeal/auth_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -11,7 +12,9 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _authService = AuthService(); // Dodane
   bool _obscurePassword = true;
+  bool _isLoading = false; // Dodane
 
   @override
   void dispose() {
@@ -20,8 +23,8 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void _handleLogin() {
-    // Implementacja logiki logowania
+  void _handleLogin() async {
+    // Walidacja
     String email = _emailController.text.trim();
     String password = _passwordController.text.trim();
 
@@ -45,16 +48,49 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
-    // Symulacja logowania - w rzeczywistej aplikacji tutaj będzie wywołanie API
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Login successful!'),
-        backgroundColor: Colors.green,
-      ),
-    );
+    // Rozpocznij ładowanie
+    setState(() {
+      _isLoading = true;
+    });
 
-    // Nawigacja do strony głównej
-    Navigator.pushReplacementNamed(context, '/home');
+    try {
+      // Wywołaj rzeczywiste logowanie przez API
+
+      // Sprawdź czy widget jest nadal zamontowany
+      if (!mounted) return;
+
+      // Pobierz dane użytkownika po zalogowaniu
+      final userData = await _authService.getUserData();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Login successful! Welcome back, ${userData['email']}'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      // Nawigacja do strony głównej
+      Navigator.pushReplacementNamed(context, '/home');
+    } catch (e) {
+      // Obsługa błędów
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Login failed: ${e.toString().replaceAll('Exception: ', '')}',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      // Zakończ ładowanie
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -112,6 +148,7 @@ class _LoginPageState extends State<LoginPage> {
               TextField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
+                enabled: !_isLoading, // Wyłącz podczas ładowania
                 decoration: InputDecoration(
                   labelText: 'Email',
                   hintText: 'Enter your email',
@@ -145,6 +182,7 @@ class _LoginPageState extends State<LoginPage> {
               TextField(
                 controller: _passwordController,
                 obscureText: _obscurePassword,
+                enabled: !_isLoading, // Wyłącz podczas ładowania
                 decoration: InputDecoration(
                   labelText: 'Password',
                   hintText: 'Enter your password',
@@ -191,16 +229,19 @@ class _LoginPageState extends State<LoginPage> {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: () {
-                    // Akcja "Forgot Password"
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Forgot password functionality will be implemented',
-                        ),
-                      ),
-                    );
-                  },
+                  onPressed:
+                      _isLoading
+                          ? null
+                          : () {
+                            // Akcja "Forgot Password"
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Password reset functionality will be implemented',
+                                ),
+                              ),
+                            );
+                          },
                   child: const Text(
                     'Forgot Password?',
                     style: TextStyle(
@@ -219,7 +260,7 @@ class _LoginPageState extends State<LoginPage> {
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
-                  onPressed: _handleLogin,
+                  onPressed: _isLoading ? null : _handleLogin,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,
                     foregroundColor: Colors.white,
@@ -228,10 +269,23 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     elevation: 0,
                   ),
-                  child: const Text(
-                    'Login',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                  ),
+                  child:
+                      _isLoading
+                          ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                          : const Text(
+                            'Login',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                 ),
               ),
 
@@ -246,10 +300,13 @@ class _LoginPageState extends State<LoginPage> {
                     style: TextStyle(color: Color(0xFF666666), fontSize: 16),
                   ),
                   TextButton(
-                    onPressed: () {
-                      // Navigate to register page using named route
-                      Navigator.pushNamed(context, '/register');
-                    },
+                    onPressed:
+                        _isLoading
+                            ? null
+                            : () {
+                              // Navigate to register page using named route
+                              Navigator.pushNamed(context, '/register');
+                            },
                     style: TextButton.styleFrom(
                       padding: EdgeInsets.zero,
                       minimumSize: Size.zero,
