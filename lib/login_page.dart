@@ -12,9 +12,9 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _authService = AuthService(); // Dodane
+  final _authService = AuthService();
   bool _obscurePassword = true;
-  bool _isLoading = false; // Dodane
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -55,7 +55,6 @@ class _LoginPageState extends State<LoginPage> {
 
     try {
       // Wywołaj rzeczywiste logowanie przez API
-      final result = await _authService.login(email: email, password: password);
 
       // Sprawdź czy widget jest nadal zamontowany
       if (!mounted) return;
@@ -149,7 +148,7 @@ class _LoginPageState extends State<LoginPage> {
               TextField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
-                enabled: !_isLoading, // Wyłącz podczas ładowania
+                enabled: !_isLoading,
                 decoration: InputDecoration(
                   labelText: 'Email',
                   hintText: 'Enter your email',
@@ -183,7 +182,7 @@ class _LoginPageState extends State<LoginPage> {
               TextField(
                 controller: _passwordController,
                 obscureText: _obscurePassword,
-                enabled: !_isLoading, // Wyłącz podczas ładowania
+                enabled: !_isLoading,
                 decoration: InputDecoration(
                   labelText: 'Password',
                   hintText: 'Enter your password',
@@ -234,7 +233,6 @@ class _LoginPageState extends State<LoginPage> {
                       _isLoading
                           ? null
                           : () {
-                            // Akcja "Forgot Password"
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text(
@@ -305,7 +303,6 @@ class _LoginPageState extends State<LoginPage> {
                         _isLoading
                             ? null
                             : () {
-                              // Navigate to register page using named route
                               Navigator.pushNamed(context, '/register');
                             },
                     style: TextButton.styleFrom(

@@ -82,9 +82,9 @@ class MyApp extends StatelessWidget {
         );
       },
 
-      // Routes configuration
+      // Routes konfiguracja
       routes: {
-        '/': (context) => const SplashScreen(), // Zmiana na SplashScreen
+        '/': (context) => const SplashScreen(),
         '/welcome': (context) => const WelcomePage(),
         '/login': (context) => const LoginPage(),
         '/register': (context) => const RegisterPage(),
@@ -115,7 +115,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkAuthStatus() async {
-    // Dodaj małe opóźnienie dla lepszego UX
+    // Małe opóźnienie dla lepszego UX
     await Future.delayed(const Duration(seconds: 1));
 
     // Sprawdź czy użytkownik jest zalogowany

@@ -3,16 +3,14 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
-  // URL-e z Twojego Swaggera
-  // Dla emulatora Android użyj 10.0.2.2 zamiast localhost
-  static const String baseUrl = 'http://10.0.2.2:5018'; // Dla emulatora Android
-  // static const String baseUrl = 'http://localhost:5018'; // Dla iOS Simulator
-  // static const String baseUrl = 'http://192.168.1.100:5018'; // Dla fizycznego urządzenia (użyj swojego IP)
+  // emulator android 10.0.2.2 (zamiast localhost)
+  static const String baseUrl = 'http://10.0.2.2:5018';
+  // 'http://localhost:5018'; // dla iOS
 
   static const String loginEndpoint = '/api/Auth/login';
   static const String registerEndpoint = '/api/Auth/register';
 
-  // Singleton pattern
+  // Singleton
   static final AuthService _instance = AuthService._internal();
   factory AuthService() => _instance;
   AuthService._internal();
@@ -21,7 +19,7 @@ class AuthService {
   String? _cachedToken;
   String? _cachedUid;
 
-  // Rejestracja przez Twoje API
+  // Rejestracja przez api
   Future<Map<String, dynamic>> register({
     required String email,
     required String password,
@@ -31,13 +29,13 @@ class AuthService {
       print('Attempting registration to: $baseUrl$registerEndpoint');
       print('Data: email=$email, password=$password');
 
-      // Przygotuj dane - dostosuj do swojego API
+      // dostosuj do API
       final Map<String, dynamic> requestBody = {
         'email': email,
         'password': password,
       };
 
-      // Dodaj username tylko jeśli API go wymaga
+      // Dodaj username jeśli API wymaga
       if (username != null && username.isNotEmpty) {
         requestBody['username'] = username;
       }
@@ -71,10 +69,9 @@ class AuthService {
 
         return data;
       } else {
-        // Spróbuj zdekodować błąd
+        // Spróbuj usunąć błąd
         try {
           final error = jsonDecode(response.body);
-          // .NET API często zwraca błędy w formacie { errors: { ... } }
           if (error['errors'] != null) {
             final errorMessages = error['errors'].values.join(', ');
             throw Exception(errorMessages);
@@ -106,7 +103,7 @@ class AuthService {
     }
   }
 
-  // Logowanie przez Twoje API
+  // Logowanie przez API
   Future<Map<String, dynamic>> login({
     required String email,
     required String password,
@@ -141,7 +138,7 @@ class AuthService {
 
         return data;
       } else {
-        // Spróbuj zdekodować błąd
+        // Spróbuj usunąć błąd
         try {
           final error = jsonDecode(response.body);
           throw Exception(
@@ -167,7 +164,7 @@ class AuthService {
 
     print('Saving user data: $data');
 
-    // Zapisz access token - sprawdź różne możliwe nazwy
+    // Zapisz access token
     final token =
         data['access_token'] ??
         data['accessToken'] ??
@@ -180,7 +177,7 @@ class AuthService {
       print('Saved token: ${token.toString().substring(0, 20)}...');
     }
 
-    // Zapisz UID użytkownika - sprawdź różne możliwe struktury
+    // Zapisz UID użytkownika
     final uid =
         data['user_id'] ??
         data['userId'] ??
@@ -229,7 +226,7 @@ class AuthService {
   Future<Map<String, dynamic>> getUserData() async {
     final prefs = await SharedPreferences.getInstance();
 
-    // Dla debugowania - pokaż ostatnią odpowiedź
+    // Dla debugowania
     final lastResponse = prefs.getString('last_auth_response');
     if (lastResponse != null) {
       print('Last auth response: $lastResponse');
@@ -250,7 +247,7 @@ class AuthService {
     return token != null && uid != null;
   }
 
-  // Wykonaj zapytanie z autoryzacją
+  // zapytanie z autoryzacją
   Future<http.Response> authenticatedRequest({
     required String endpoint,
     required String method,
@@ -316,8 +313,7 @@ class AuthService {
   Future<bool> testConnection() async {
     try {
       // Spróbuj dostać się do głównego URL lub health check endpoint
-      final testUrl =
-          '$baseUrl/api/Auth'; // lub '$baseUrl/health' jeśli masz taki endpoint
+      final testUrl = '$baseUrl/api/Auth';
       print('Testing connection to: $testUrl');
 
       final response = await http
