@@ -1,37 +1,67 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthService {
-  // URL do Twojego API (Swagger)
-  static const String loginUrl = 'http://localhost:5018/api/Auth/login';
-  static const String registerUrl = 'http://localhost:5018/api/Auth/register';
+  // URL-e z Twojego Swaggera
+  // Dla emulatora Android użyj 10.0.2.2 zamiast localhost
+  static const String baseUrl = 'http://10.0.2.2:5018'; // Dla emulatora Android
+  // static const String baseUrl = 'http://localhost:5018'; // Dla iOS Simulator
+  // static const String baseUrl = 'http://192.168.1.100:5018'; // Dla fizycznego urządzenia (użyj swojego IP)
+
+  static const String loginEndpoint = '/api/Auth/login';
+  static const String registerEndpoint = '/api/Auth/register';
 
   // Singleton pattern
   static final AuthService _instance = AuthService._internal();
   factory AuthService() => _instance;
   AuthService._internal();
 
-  // Supabase client
-  final SupabaseClient supabase = Supabase.instance.client;
-
   // Cache dla tokenów
   String? _cachedToken;
   String? _cachedUid;
 
-  // Rejestracja przez Twoje API (które komunikuje się z Supabase)
+  // Rejestracja przez Twoje API
   Future<Map<String, dynamic>> register({
     required String email,
     required String password,
     String? username,
   }) async {
     try {
-      final response = await http.post(
-        Uri.parse(registerUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email, 'password': password}),
-      );
+      print('Attempting registration to: $baseUrl$registerEndpoint');
+      print('Data: email=$email, password=$password');
+
+      // Przygotuj dane - dostosuj do swojego API
+      final Map<String, dynamic> requestBody = {
+        'email': email,
+        'password': password,
+      };
+
+      // Dodaj username tylko jeśli API go wymaga
+      if (username != null && username.isNotEmpty) {
+        requestBody['username'] = username;
+      }
+
+      print('Request body: ${jsonEncode(requestBody)}');
+
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl$registerEndpoint'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: jsonEncode(requestBody),
+          )
+          .timeout(
+            const Duration(seconds: 30),
+            onTimeout: () {
+              throw Exception('Request timeout - check your API URL');
+            },
+          );
+
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
@@ -39,16 +69,40 @@ class AuthService {
         // Zapisz dane użytkownika
         await _saveUserData(data);
 
-        // Opcjonalnie: Zaloguj też przez Supabase SDK
-        await _syncWithSupabase(email, password);
-
         return data;
       } else {
-        final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Registration failed');
+        // Spróbuj zdekodować błąd
+        try {
+          final error = jsonDecode(response.body);
+          // .NET API często zwraca błędy w formacie { errors: { ... } }
+          if (error['errors'] != null) {
+            final errorMessages = error['errors'].values.join(', ');
+            throw Exception(errorMessages);
+          }
+          throw Exception(
+            error['detail'] ??
+                error['message'] ??
+                error['title'] ??
+                'Registration failed',
+          );
+        } catch (e) {
+          if (response.statusCode == 400) {
+            throw Exception(
+              'Bad request - check email format and password requirements',
+            );
+          } else if (response.statusCode == 409) {
+            throw Exception('Email already registered');
+          }
+          throw Exception('Registration failed: ${response.body}');
+        }
       }
+    } on http.ClientException catch (e) {
+      throw Exception(
+        'Network error: ${e.message}. Check if your API is running on port 5018.',
+      );
     } catch (e) {
-      throw Exception('Connection error: $e');
+      print('Registration error: $e');
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
   }
 
@@ -58,11 +112,26 @@ class AuthService {
     required String password,
   }) async {
     try {
-      final response = await http.post(
-        Uri.parse(loginUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email, 'password': password}),
-      );
+      print('Attempting login to: $baseUrl$loginEndpoint');
+
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl$loginEndpoint'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: jsonEncode({'email': email, 'password': password}),
+          )
+          .timeout(
+            const Duration(seconds: 30),
+            onTimeout: () {
+              throw Exception('Request timeout - check your API URL');
+            },
+          );
+
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -70,32 +139,25 @@ class AuthService {
         // Zapisz dane użytkownika
         await _saveUserData(data);
 
-        // Opcjonalnie: Zaloguj też przez Supabase SDK
-        await _syncWithSupabase(email, password);
-
         return data;
       } else {
-        final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Login failed');
+        // Spróbuj zdekodować błąd
+        try {
+          final error = jsonDecode(response.body);
+          throw Exception(
+            error['detail'] ?? error['message'] ?? 'Login failed',
+          );
+        } catch (e) {
+          throw Exception('Login failed: ${response.body}');
+        }
       }
+    } on http.ClientException catch (e) {
+      throw Exception(
+        'Network error: ${e.message}. Check if your API is running.',
+      );
     } catch (e) {
-      throw Exception('Connection error: $e');
-    }
-  }
-
-  // Synchronizacja z Supabase SDK (opcjonalne)
-  Future<void> _syncWithSupabase(String email, String password) async {
-    try {
-      // Spróbuj zalogować przez Supabase SDK
-      await supabase.auth.signInWithPassword(email: email, password: password);
-    } catch (e) {
-      // Jeśli logowanie się nie udało, spróbuj utworzyć konto
-      try {
-        await supabase.auth.signUp(email: email, password: password);
-      } catch (signUpError) {
-        // Ignoruj błędy - API jest głównym źródłem prawdy
-        print('Supabase sync error: $signUpError');
-      }
+      print('Login error: $e');
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
   }
 
@@ -103,96 +165,63 @@ class AuthService {
   Future<void> _saveUserData(Map<String, dynamic> data) async {
     final prefs = await SharedPreferences.getInstance();
 
-    // Zapisz access token - różne API mogą zwracać token pod różnymi nazwami
+    print('Saving user data: $data');
+
+    // Zapisz access token - sprawdź różne możliwe nazwy
     final token =
         data['access_token'] ??
         data['accessToken'] ??
         data['token'] ??
-        data['session']?['access_token'];
+        data['auth_token'];
 
     if (token != null) {
-      await prefs.setString('auth_token', token);
-      _cachedToken = token;
+      await prefs.setString('auth_token', token.toString());
+      _cachedToken = token.toString();
+      print('Saved token: ${token.toString().substring(0, 20)}...');
     }
 
-    // Zapisz UID użytkownika - również może być pod różnymi nazwami
+    // Zapisz UID użytkownika - sprawdź różne możliwe struktury
     final uid =
-        data['user']?['id'] ??
-        data['uid'] ??
-        data['userId'] ??
         data['user_id'] ??
-        data['id'];
+        data['userId'] ??
+        data['uid'] ??
+        data['id'] ??
+        data['user']?['id'] ??
+        data['user']?['uid'];
 
     if (uid != null) {
       await prefs.setString('user_uid', uid.toString());
       _cachedUid = uid.toString();
-    }
-
-    // Zapisz refresh token jeśli jest
-    final refreshToken =
-        data['refresh_token'] ??
-        data['refreshToken'] ??
-        data['session']?['refresh_token'];
-
-    if (refreshToken != null) {
-      await prefs.setString('refresh_token', refreshToken);
-    }
-
-    // Zapisz dane użytkownika
-    if (data['user'] != null) {
-      await prefs.setString('user_data', jsonEncode(data['user']));
+      print('Saved UID: $uid');
     }
 
     // Zapisz email
-    final email =
-        data['user']?['email'] ??
-        data['email'] ??
-        supabase.auth.currentUser?.email;
+    final email = data['email'] ?? data['user']?['email'] ?? data['user_email'];
 
     if (email != null) {
-      await prefs.setString('user_email', email);
+      await prefs.setString('user_email', email.toString());
+      print('Saved email: $email');
     }
+
+    // Zapisz całą odpowiedź dla debugowania
+    await prefs.setString('last_auth_response', jsonEncode(data));
   }
 
   // Pobierz token
   Future<String?> getToken() async {
-    // Najpierw sprawdź cache
     if (_cachedToken != null) return _cachedToken;
 
-    // Potem SharedPreferences
     final prefs = await SharedPreferences.getInstance();
     _cachedToken = prefs.getString('auth_token');
-
-    // Jeśli nie ma, sprawdź Supabase SDK
-    if (_cachedToken == null) {
-      final session = supabase.auth.currentSession;
-      if (session != null) {
-        _cachedToken = session.accessToken;
-        await prefs.setString('auth_token', _cachedToken!);
-      }
-    }
-
     return _cachedToken;
   }
 
   // Pobierz UID
   Future<String?> getUid() async {
-    // Najpierw sprawdź cache
     if (_cachedUid != null) return _cachedUid;
 
-    // Potem SharedPreferences
     final prefs = await SharedPreferences.getInstance();
     _cachedUid = prefs.getString('user_uid');
-
-    // Jeśli nie ma, sprawdź Supabase SDK
-    if (_cachedUid == null) {
-      final user = supabase.auth.currentUser;
-      if (user != null) {
-        _cachedUid = user.id;
-        await prefs.setString('user_uid', _cachedUid!);
-      }
-    }
-
     return _cachedUid;
   }
 
@@ -200,29 +229,17 @@ class AuthService {
   Future<Map<String, dynamic>> getUserData() async {
     final prefs = await SharedPreferences.getInstance();
 
-    // Pobierz dane z różnych źródeł
-    final uid = await getUid();
-    final token = await getToken();
-    final email =
-        prefs.getString('user_email') ?? supabase.auth.currentUser?.email;
-
-    // Spróbuj odczytać zapisane dane użytkownika
-    Map<String, dynamic>? userData;
-    final userDataString = prefs.getString('user_data');
-    if (userDataString != null) {
-      try {
-        userData = jsonDecode(userDataString);
-      } catch (e) {
-        userData = null;
-      }
+    // Dla debugowania - pokaż ostatnią odpowiedź
+    final lastResponse = prefs.getString('last_auth_response');
+    if (lastResponse != null) {
+      print('Last auth response: $lastResponse');
     }
 
     return {
-      'uid': uid,
-      'token': token,
-      'email': email,
-      'userData': userData,
-      'isSupabaseConnected': supabase.auth.currentUser != null,
+      'uid': await getUid(),
+      'token': await getToken(),
+      'email': prefs.getString('user_email'),
+      'lastResponse': lastResponse != null ? jsonDecode(lastResponse) : null,
     };
   }
 
@@ -230,14 +247,12 @@ class AuthService {
   Future<bool> isLoggedIn() async {
     final token = await getToken();
     final uid = await getUid();
-
-    // Użytkownik jest zalogowany jeśli ma token i UID
     return token != null && uid != null;
   }
 
   // Wykonaj zapytanie z autoryzacją
   Future<http.Response> authenticatedRequest({
-    required String url,
+    required String endpoint,
     required String method,
     Map<String, dynamic>? body,
     Map<String, String>? additionalHeaders,
@@ -252,6 +267,9 @@ class AuthService {
       'Authorization': 'Bearer $token',
       ...?additionalHeaders,
     };
+
+    final url = '$baseUrl$endpoint';
+    print('Authenticated request to: $url');
 
     http.Response response;
 
@@ -280,95 +298,47 @@ class AuthService {
         throw Exception('Unsupported HTTP method: $method');
     }
 
-    // Jeśli token wygasł, spróbuj odświeżyć
-    if (response.statusCode == 401) {
-      await _refreshToken();
-      // Powtórz zapytanie z nowym tokenem
-      return authenticatedRequest(
-        url: url,
-        method: method,
-        body: body,
-        additionalHeaders: additionalHeaders,
-      );
-    }
-
+    print('Response status: ${response.statusCode}');
     return response;
-  }
-
-  // Odśwież token
-  Future<void> _refreshToken() async {
-    try {
-      // Najpierw spróbuj przez Supabase SDK
-      final session = await supabase.auth.refreshSession();
-      if (session.session != null) {
-        await _saveUserData({
-          'access_token': session.session!.accessToken,
-          'refresh_token': session.session!.refreshToken,
-          'user': {'id': session.session!.user.id},
-        });
-        return;
-      }
-    } catch (e) {
-      // Jeśli Supabase SDK nie działa, użyj API
-    }
-
-    // Spróbuj przez API
-    final prefs = await SharedPreferences.getInstance();
-    final refreshToken = prefs.getString('refresh_token');
-
-    if (refreshToken == null) {
-      throw Exception('No refresh token - login required');
-    }
-
-    // Tutaj wywołaj endpoint do odświeżania tokena
-    // final response = await http.post(...);
   }
 
   // Wylogowanie
   Future<void> logout() async {
-    // Wyloguj z Supabase
-    try {
-      await supabase.auth.signOut();
-    } catch (e) {
-      print('Supabase logout error: $e');
-    }
-
-    // Wyczyść lokalne dane
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('auth_token');
-    await prefs.remove('user_uid');
-    await prefs.remove('refresh_token');
-    await prefs.remove('user_data');
-    await prefs.remove('user_email');
+    await prefs.clear();
 
     // Wyczyść cache
     _cachedToken = null;
     _cachedUid = null;
   }
 
-  // Metody pomocnicze dla Supabase
-
-  // Pobierz dane z tabeli Supabase
-  Future<List<Map<String, dynamic>>> getSupabaseData(String table) async {
+  // Test połączenia z API
+  Future<bool> testConnection() async {
     try {
-      final response = await supabase.from(table).select();
-      return List<Map<String, dynamic>>.from(response);
-    } catch (e) {
-      throw Exception('Error fetching data from $table: $e');
-    }
-  }
+      // Spróbuj dostać się do głównego URL lub health check endpoint
+      final testUrl =
+          '$baseUrl/api/Auth'; // lub '$baseUrl/health' jeśli masz taki endpoint
+      print('Testing connection to: $testUrl');
 
-  // Dodaj dane do tabeli Supabase
-  Future<Map<String, dynamic>> insertSupabaseData(
-    String table,
-    Map<String, dynamic> data,
-  ) async {
-    try {
-      final response =
-          await supabase.from(table).insert(data).select().single();
-      return response;
+      final response = await http
+          .get(Uri.parse(testUrl), headers: {'Accept': 'application/json'})
+          .timeout(
+            const Duration(seconds: 5),
+            onTimeout: () {
+              print('Connection timeout to $testUrl');
+              return http.Response('Timeout', 408);
+            },
+          );
+
+      print('API test response: ${response.statusCode}');
+      // Akceptuj różne kody odpowiedzi które oznaczają że API działa
+      return response.statusCode < 500 ||
+          response.statusCode ==
+              405; // 405 = Method Not Allowed (ale API działa)
     } catch (e) {
-      throw Exception('Error inserting data to $table: $e');
+      print('API connection test failed: $e');
+      print('Make sure your API is running on $baseUrl');
+      return false;
     }
   }
 }

@@ -55,6 +55,7 @@ class _LoginPageState extends State<LoginPage> {
 
     try {
       // Wywołaj rzeczywiste logowanie przez API
+      final result = await _authService.login(email: email, password: password);
 
       // Sprawdź czy widget jest nadal zamontowany
       if (!mounted) return;

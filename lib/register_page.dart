@@ -29,6 +29,13 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   void _handleSignUp() async {
+    // Test połączenia z API
+    print('Testing API connection...');
+    final isConnected = await _authService.testConnection();
+    if (!isConnected) {
+      _showSnackBar('Cannot connect to API. Check if your server is running.');
+      return;
+    }
     // Validate inputs
     if (_emailController.text.trim().isEmpty) {
       _showSnackBar('Please enter your email');
@@ -69,6 +76,10 @@ class _RegisterPageState extends State<RegisterPage> {
 
     try {
       // Wywołaj rzeczywistą rejestrację przez API
+      final result = await _authService.register(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
 
       // Sprawdź czy widget jest nadal zamontowany
       if (!mounted) return;
