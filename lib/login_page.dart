@@ -54,17 +54,26 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      // Wywołaj rzeczywiste logowanie przez API
+      // WAŻNE: Wywołaj rzeczywiste logowanie przez API
+      // To sprawdzi czy użytkownik istnieje w Supabase
+      final loginResult = await _authService.login(
+        email: email,
+        password: password,
+      );
+
+      print('Login successful, result: $loginResult');
 
       // Sprawdź czy widget jest nadal zamontowany
       if (!mounted) return;
 
-      // Pobierz dane użytkownika po zalogowaniu
+      // Pobierz dane użytkownika po udanym zalogowaniu
       final userData = await _authService.getUserData();
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Login successful! Welcome back, ${userData['email']}'),
+          content: Text(
+            'Login successful! Welcome back, ${userData['email'] ?? email}',
+          ),
           backgroundColor: Colors.green,
         ),
       );
@@ -72,15 +81,27 @@ class _LoginPageState extends State<LoginPage> {
       // Nawigacja do strony głównej
       Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {
-      // Obsługa błędów
+      // Obsługa błędów - użytkownik nie istnieje lub złe hasło
       if (!mounted) return;
+
+      String errorMessage = e.toString().replaceAll('Exception: ', '');
+
+      // Popraw komunikaty błędów
+      if (errorMessage.contains('401') ||
+          errorMessage.contains('Unauthorized')) {
+        errorMessage = 'Invalid email or password';
+      } else if (errorMessage.contains('Network error')) {
+        errorMessage =
+            'Cannot connect to server. Please check your connection.';
+      } else if (errorMessage.contains('timeout')) {
+        errorMessage = 'Connection timeout. Please try again.';
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Login failed: ${e.toString().replaceAll('Exception: ', '')}',
-          ),
+          content: Text('Login failed: $errorMessage'),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
         ),
       );
     } finally {
