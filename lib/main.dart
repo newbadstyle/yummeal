@@ -14,10 +14,11 @@ void main() async {
   // Inicjalizacja Supabase
   await Supabase.initialize(
     url: 'https://ipyzybezgqczyjyrjpcf.supabase.co',
-    anonKey:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlweXp5YmV6Z3FjenlqeXJqcGNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk1NzMzNTIsImV4cCI6MjA2NTE0OTM1Mn0.XTonGkjfsdZKMbsTI6AEpm_bUS6714L9IuyIjLS6HbY', // Zastąp swoim kluczem
+    anonKey: 'YOUR_SUPABASE_ANON_KEY_HERE',
   );
-
+  // Load environment variables from .env file
+  var dotenv;
+  await dotenv.load(fileName: ".env");
   runApp(const MyApp());
 }
 
