@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:yummeal/auth_service.dart';
 import 'welcome_page.dart';
 import 'login_page.dart';
@@ -11,14 +12,15 @@ import 'home_page.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Inicjalizacja Supabase
-  await Supabase.initialize(
-    url: 'https://ipyzybezgqczyjyrjpcf.supabase.co',
-    anonKey: 'YOUR_SUPABASE_ANON_KEY_HERE',
-  );
-  // Load environment variables from .env file
-  var dotenv;
+  // Załaduj zmienne środowiskowe z pliku .env
   await dotenv.load(fileName: ".env");
+
+  // Inicjalizacja Supabase ze zmiennymi środowiskowymi
+  await Supabase.initialize(
+    url: dotenv.env['SUPABASE_URL']!,
+    anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
+  );
+
   runApp(const MyApp());
 }
 
