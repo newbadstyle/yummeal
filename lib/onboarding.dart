@@ -51,32 +51,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     }
   }
 
-  Map<String, int> _calculateBasicValues() {
-    // Podstawowe obliczenia BMR
-    double bmr;
-    if (gender == 'Male') {
-      bmr =
-          88.362 + (13.397 * currentWeight) + (4.799 * height) - (5.677 * age);
-    } else {
-      bmr =
-          447.593 + (9.247 * currentWeight) + (3.098 * height) - (4.330 * age);
-    }
-
-    // Podstawowe wartości odżywcze
-    int dailyCalories = (bmr * 1.5).round();
-    int dailyProtein = (currentWeight * 1.6).round();
-    int dailyFat = (dailyCalories * 0.25 / 9).round();
-    int dailyCarbs =
-        ((dailyCalories - (dailyProtein * 4) - (dailyFat * 9)) / 4).round();
-
-    return {
-      'daily_calories': dailyCalories,
-      'daily_protein': dailyProtein,
-      'daily_fat': dailyFat,
-      'daily_carbs': dailyCarbs,
-    };
-  }
-
   int _getGenderValue(String genderText) {
     switch (genderText) {
       case 'Male':

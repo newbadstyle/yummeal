@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:yummeal/auth_service.dart';
 import 'package:yummeal/onboarding.dart';
 import 'welcome_page.dart';
 import 'login_page.dart';
@@ -114,7 +113,6 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  final _authService = AuthService();
   final supabase = Supabase.instance.client;
 
   @override
