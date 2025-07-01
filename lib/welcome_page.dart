@@ -4,7 +4,7 @@ import 'login_page.dart';
 import 'register_page.dart';
 
 class WelcomePage extends StatelessWidget {
-  const WelcomePage({Key? key}) : super(key: key);
+  const WelcomePage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -14,7 +14,7 @@ class WelcomePage extends StatelessWidget {
           // Górna sekcja 50% ekranu
           Expanded(
             flex: 1,
-            child: Container(
+            child: SizedBox(
               width: double.infinity,
               child: Image.asset(
                 'assets/images/welcome.jpg',

@@ -29,14 +29,7 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   void _handleSignUp() async {
-    // Test połączenia z API
-    print('Testing API connection...');
-    final isConnected = await _authService.testConnection();
-    if (!isConnected) {
-      _showSnackBar('Cannot connect to API. Check if your server is running.');
-      return;
-    }
-    // Poprawność danych wejściowych
+    // Walidacja danych wejściowych
     if (_emailController.text.trim().isEmpty) {
       _showSnackBar('Please enter your email');
       return;
@@ -75,38 +68,41 @@ class _RegisterPageState extends State<RegisterPage> {
     });
 
     try {
-      // Rzeczywista rejestracja przez API
+      // Rejestracja przez Supabase
+      final success = await _authService.register(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
 
-      // Sprawdź czy widget jest nadal zamontowany
       if (!mounted) return;
 
-      // Pobierz dane użytkownika po rejestracji
-      final userData = await _authService.getUserData();
-      final uid = userData['uid'];
+      if (success) {
+        _showSnackBar('Registration successful!', isSuccess: true);
 
-      _showSnackBar('Registration successful! Your UID: $uid', isSuccess: true);
-
-      // Po udanej rejestracji:
-      // 1. Automatycznie zalogować użytkownika
-      // 2. Przekierowanie do logowania
-
-      // Sprawdź czy użytkownik jest zalogowany po rejestracji
-      final isLoggedIn = await _authService.isLoggedIn();
-
-      if (isLoggedIn) {
-        // Jeśli API automatycznie loguje po rejestracji
-        Navigator.pushReplacementNamed(context, '/home');
+        // Po pomyślnej rejestracji przekieruj do onboardingu
+        Navigator.pushReplacementNamed(context, '/onboarding');
       } else {
-        // Jeśli nie to przekieruj do logowania
-        Navigator.pushReplacementNamed(context, '/login');
+        _showSnackBar('Registration failed. Please try again.');
       }
     } catch (e) {
       // Obsługa błędów
       if (!mounted) return;
 
-      _showSnackBar(
-        'Registration failed: ${e.toString().replaceAll('Exception: ', '')}',
-      );
+      String errorMessage = e.toString();
+
+      // Lepsze komunikaty błędów dla użytkownika
+      if (errorMessage.contains('User already registered')) {
+        errorMessage =
+            'An account with this email already exists. Please sign in instead.';
+      } else if (errorMessage.contains('Invalid email')) {
+        errorMessage = 'Please enter a valid email address.';
+      } else if (errorMessage.contains('Password')) {
+        errorMessage = 'Password must be at least 6 characters long.';
+      } else {
+        errorMessage = errorMessage.replaceAll('Exception: ', '');
+      }
+
+      _showSnackBar('Registration failed: $errorMessage');
     } finally {
       // Zakończ ładowanie
       if (mounted) {

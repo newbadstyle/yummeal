@@ -4,10 +4,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:yummeal/auth_service.dart';
+import 'package:yummeal/onboarding.dart';
 import 'welcome_page.dart';
 import 'login_page.dart';
 import 'register_page.dart';
 import 'home_page.dart';
+import 'profile_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -92,7 +94,9 @@ class MyApp extends StatelessWidget {
         '/welcome': (context) => const WelcomePage(),
         '/login': (context) => const LoginPage(),
         '/register': (context) => const RegisterPage(),
+        '/onboarding': (context) => const OnboardingFlow(),
         '/home': (context) => const HomePage(),
+        '/profile': (context) => const ProfileScreen(),
       },
 
       // Initial route
@@ -111,6 +115,7 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> {
   final _authService = AuthService();
+  final supabase = Supabase.instance.client;
 
   @override
   void initState() {
@@ -122,15 +127,37 @@ class _SplashScreenState extends State<SplashScreen> {
     // Opóźnienie dla lepszego UX
     await Future.delayed(const Duration(seconds: 1));
 
-    // Sprawdź czy użytkownik jest zalogowany
-    final isLoggedIn = await _authService.isLoggedIn();
+    try {
+      // Sprawdź czy użytkownik jest zalogowany w Supabase
+      final user = supabase.auth.currentUser;
 
-    if (mounted) {
-      if (isLoggedIn) {
-        // Jeśli zalogowany, idź do home
-        Navigator.pushReplacementNamed(context, '/home');
+      if (user != null) {
+        // Sprawdź czy użytkownik ma profil (ukończył onboarding)
+        final profileResponse =
+            await supabase
+                .from('user_profiles')
+                .select()
+                .eq('id', user.id)
+                .maybeSingle();
+
+        if (mounted) {
+          if (profileResponse != null) {
+            // Użytkownik ma profil - idź do home
+            Navigator.pushReplacementNamed(context, '/home');
+          } else {
+            // Użytkownik zalogowany ale nie ma profilu - onboarding
+            Navigator.pushReplacementNamed(context, '/onboarding');
+          }
+        }
       } else {
-        // Jeśli nie to idź do welcome page
+        // Użytkownik nie zalogowany - welcome page
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/welcome');
+        }
+      }
+    } catch (e) {
+      print('Error checking auth status: $e');
+      if (mounted) {
         Navigator.pushReplacementNamed(context, '/welcome');
       }
     }
@@ -153,6 +180,9 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
             ),
             const SizedBox(height: 24),
+            const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF4CAF50)),
+            ),
           ],
         ),
       ),

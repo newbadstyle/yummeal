@@ -72,7 +72,7 @@ class _LoginPageState extends State<LoginPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Login successful! Welcome back, ${userData['email'] ?? email}',
+            'Login successful! Welcome back, ${userData!['email'] ?? email}',
           ),
           backgroundColor: Colors.green,
         ),
