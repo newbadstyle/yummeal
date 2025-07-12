@@ -68,7 +68,7 @@ class _RegisterPageState extends State<RegisterPage> {
     });
 
     try {
-      // Rejestracja przez Supabase
+      // Rejestracja przez nasze API
       final success = await _authService.register(
         email: _emailController.text.trim(),
         password: _passwordController.text,
@@ -77,7 +77,20 @@ class _RegisterPageState extends State<RegisterPage> {
       if (!mounted) return;
 
       if (success) {
-        _showSnackBar('Registration successful!', isSuccess: true);
+        // Sprawdź czy token został zapisany
+        final token = await _authService.getToken();
+        print(
+          'Token after registration: ${token?.substring(0, 20)}...' ?? 'null',
+        );
+
+        // Pobierz dane użytkownika
+        final userData = await _authService.getUserData();
+        print('User data after registration: $userData');
+
+        _showSnackBar(
+          'Registration successful! Welcome to Yummeal!',
+          isSuccess: true,
+        );
 
         // Po pomyślnej rejestracji przekieruj do onboardingu
         Navigator.pushReplacementNamed(context, '/onboarding');
@@ -88,18 +101,30 @@ class _RegisterPageState extends State<RegisterPage> {
       // Obsługa błędów
       if (!mounted) return;
 
-      String errorMessage = e.toString();
+      String errorMessage = e.toString().replaceAll('Exception: ', '');
 
       // Lepsze komunikaty błędów dla użytkownika
-      if (errorMessage.contains('User already registered')) {
+      if (errorMessage.contains('User already exists') ||
+          errorMessage.contains('already registered') ||
+          errorMessage.contains('Email already in use')) {
         errorMessage =
             'An account with this email already exists. Please sign in instead.';
       } else if (errorMessage.contains('Invalid email')) {
         errorMessage = 'Please enter a valid email address.';
-      } else if (errorMessage.contains('Password')) {
+      } else if (errorMessage.contains('Password') &&
+          errorMessage.contains('weak')) {
         errorMessage = 'Password must be at least 6 characters long.';
-      } else {
-        errorMessage = errorMessage.replaceAll('Exception: ', '');
+      } else if (errorMessage.contains('Network error') ||
+          errorMessage.contains('Connection failed')) {
+        errorMessage =
+            'Cannot connect to server. Please check your connection.';
+      } else if (errorMessage.contains('timeout')) {
+        errorMessage = 'Connection timeout. Please try again.';
+      } else if (errorMessage.contains('500')) {
+        errorMessage = 'Server error. Please try again later.';
+      } else if (errorMessage.contains('400')) {
+        errorMessage =
+            'Invalid registration data. Please check your information.';
       }
 
       _showSnackBar('Registration failed: $errorMessage');
@@ -120,6 +145,7 @@ class _RegisterPageState extends State<RegisterPage> {
         backgroundColor: isSuccess ? Colors.green : Colors.red,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        duration: const Duration(seconds: 4),
       ),
     );
   }

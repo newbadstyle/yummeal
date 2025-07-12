@@ -1,7 +1,7 @@
 // onboarding.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:yummeal/auth_service.dart';
 
 class OnboardingFlow extends StatefulWidget {
   const OnboardingFlow({super.key});
@@ -12,18 +12,20 @@ class OnboardingFlow extends StatefulWidget {
 
 class _OnboardingFlowState extends State<OnboardingFlow> {
   final PageController _pageController = PageController();
-  final supabase = Supabase.instance.client;
+  final _authService = AuthService();
 
   int currentStep = 0;
   final int totalSteps = 6; // Bez AI kroku
 
   // Data collection
-  String username = '';
+  String firstName = '';
+  String lastName = '';
   String gender = '';
   int age = 25;
-  double goalWeight = 60;
+  double targetWeight = 60;
   int height = 170;
   double currentWeight = 45;
+  int activityLevel = 1;
 
   void _nextStep() {
     if (currentStep < totalSteps - 1) {
@@ -63,9 +65,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   int _getWeightGoal() {
-    if (currentWeight > goalWeight) {
+    if (currentWeight > targetWeight) {
       return 2; // Lose weight
-    } else if (currentWeight < goalWeight) {
+    } else if (currentWeight < targetWeight) {
       return 1; // Gain weight
     } else {
       return 3; // Maintain weight
@@ -73,37 +75,77 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   Future<void> _completeOnboarding() async {
-    try {
-      final user = supabase.auth.currentUser;
-      if (user == null) throw Exception('User not authenticated');
+    print('===== STARTING ONBOARDING COMPLETION =====');
 
-      // Debug - sprawdź dane
-      print('User ID: ${user.id}');
-      print('Saving user data:');
-      print('FirstName: $username');
+    try {
+      // Sprawdź czy użytkownik jest zalogowany
+      final isLoggedIn = await _authService.isLoggedIn();
+      final userData = await _authService.getUserData();
+      final token = await _authService.getToken();
+
+      print('Onboarding check - isLoggedIn: $isLoggedIn');
+      print('Onboarding check - userData: $userData');
+      print(
+        'Onboarding check - token: ${token?.substring(0, 20)}...' ?? 'null',
+      );
+
+      // Debug - sprawdź dane przed zapisem
+      print('Saving onboarding data:');
+      print('FirstName: $firstName');
+      print('LastName: $lastName');
       print('Age: $age');
       print('Gender: ${_getGenderValue(gender)}');
       print('Height: $height');
       print('CurrentWeight: ${currentWeight.round()}');
-      print('TargetWeight: ${goalWeight.round()}');
+      print('TargetWeight: ${targetWeight.round()}');
       print('WeightGoal: ${_getWeightGoal()}');
+      print('ActivityLevel: $activityLevel');
 
-      // Prawidłowa nazwa tabeli i typy danych
-      await supabase.from('UserProfiles').insert({
-        'UserId': user.id,
-        'FirstName': username,
-        'LastName': '', // Puste pole
-        'Age': age,
-        'Gender': _getGenderValue(gender),
-        'Height': height,
-        'CurrentWeight': currentWeight.round(), // int zamiast double
-        'TargetWeight': goalWeight.round(), // int zamiast double
-        'WeightGoal': _getWeightGoal(),
-        'ActivityLevel': 1,
-        'IsOnboardingCompleted': false,
-      });
+      // ZAWSZE zapisz dane lokalnie (niezależnie od API)
+      final currentUserData = await _authService.getUserData() ?? {};
 
-      print('Insert successful!');
+      // Dodaj wszystkie dane onboardingu
+      currentUserData['isOnboardingCompleted'] = true;
+      currentUserData['firstName'] = firstName;
+      currentUserData['FirstName'] = firstName; // Backup
+      currentUserData['lastName'] = lastName;
+      currentUserData['LastName'] = lastName; // Backup
+      currentUserData['Age'] = age;
+      currentUserData['Gender'] = _getGenderValue(gender);
+      currentUserData['Height'] = height;
+      currentUserData['CurrentWeight'] = currentWeight.round();
+      currentUserData['TargetWeight'] = targetWeight.round();
+      currentUserData['WeightGoal'] = _getWeightGoal();
+      currentUserData['ActivityLevel'] = activityLevel;
+
+      // Zapisz lokalne dane
+      await _authService.saveAuthDataPublic(currentUserData);
+      print('Local data saved with onboarding completion');
+
+      // Spróbuj wysłać do API (jeśli token istnieje)
+      if (isLoggedIn && token != null) {
+        try {
+          final onboardingData = {
+            'firstName': firstName,
+            'lastName': lastName,
+            'age': age,
+            'gender': _getGenderValue(gender),
+            'height': height,
+            'currentWeight': currentWeight.round(),
+            'targetWeight': targetWeight.round(),
+            'weightGoal': _getWeightGoal(),
+            'activityLevel': activityLevel,
+          };
+
+          final result = await _authService.completeOnboarding(onboardingData);
+          print('API onboarding completion result: $result');
+        } catch (apiError) {
+          print('API error but continuing with local data: $apiError');
+          // Kontynuuj nawet jeśli API nie działa
+        }
+      } else {
+        print('No token available, skipping API call but keeping local data');
+      }
 
       if (mounted) {
         // Pokaż komunikat sukcesu
@@ -116,16 +158,36 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           ),
         );
 
-        // Przejdź do home page
+        // ZAWSZE przejdź do home page po zapisaniu danych
+        print('Navigating to home page after onboarding completion');
         Navigator.of(context).pushReplacementNamed('/home');
       }
     } catch (e) {
-      print('Error details: $e');
+      print('Critical error in onboarding completion: $e');
       print('Error type: ${e.runtimeType}');
+
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        // Nawet przy błędzie, spróbuj zapisać podstawowe dane lokalnie
+        try {
+          final basicUserData = await _authService.getUserData() ?? {};
+          basicUserData['isOnboardingCompleted'] = true;
+          basicUserData['firstName'] = firstName;
+          basicUserData['FirstName'] = firstName;
+          await _authService.saveAuthDataPublic(basicUserData);
+
+          // Przejdź do home nawet przy błędzie
+          Navigator.of(context).pushReplacementNamed('/home');
+        } catch (saveError) {
+          print('Failed to save even basic data: $saveError');
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error saving profile: ${e.toString()}'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
       }
     }
   }
@@ -208,7 +270,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                 controller: _pageController,
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
-                  _buildUsernameStep(),
+                  _buildNameStep(),
                   _buildGenderStep(),
                   _buildAgeStep(),
                   _buildHeightStep(),
@@ -223,7 +285,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     );
   }
 
-  Widget _buildUsernameStep() {
+  Widget _buildNameStep() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
@@ -231,7 +293,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         children: [
           const SizedBox(height: 60),
           const Text(
-            'Choose your username',
+            'What\'s your first name?',
             style: TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.bold,
@@ -240,7 +302,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           ),
           const SizedBox(height: 8),
           Text(
-            'You can change this at any time',
+            'This will be shown on your profile',
             style: TextStyle(fontSize: 16, color: Colors.grey[600]),
           ),
           const SizedBox(height: 48),
@@ -250,9 +312,29 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: TextField(
-              onChanged: (value) => setState(() => username = value),
+              onChanged: (value) => setState(() => firstName = value),
               decoration: const InputDecoration(
-                hintText: '@nutrifever',
+                hintText: 'Enter your first name',
+                hintStyle: TextStyle(color: Colors.grey),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
+              ),
+              style: const TextStyle(fontSize: 16),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: TextField(
+              onChanged: (value) => setState(() => lastName = value),
+              decoration: const InputDecoration(
+                hintText: 'Enter your last name (optional)',
                 hintStyle: TextStyle(color: Colors.grey),
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.symmetric(
@@ -268,7 +350,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
             width: double.infinity,
             height: 56,
             child: ElevatedButton(
-              onPressed: username.isNotEmpty ? _nextStep : null,
+              onPressed: firstName.isNotEmpty ? _nextStep : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.black,
                 foregroundColor: Colors.white,
@@ -715,18 +797,18 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               diameterRatio: 1.5,
               physics: const FixedExtentScrollPhysics(),
               controller: FixedExtentScrollController(
-                initialItem: goalWeight.round() - 30, // Current selection
+                initialItem: targetWeight.round() - 30, // Current selection
               ),
               onSelectedItemChanged: (index) {
                 setState(() {
-                  goalWeight = (index + 30).toDouble(); // Start from 30kg
+                  targetWeight = (index + 30).toDouble(); // Start from 30kg
                 });
               },
               childDelegate: ListWheelChildBuilderDelegate(
                 childCount: 171, // 30kg to 200kg (171 options)
                 builder: (context, index) {
                   final weight = index + 30;
-                  final isSelected = weight == goalWeight.round();
+                  final isSelected = weight == targetWeight.round();
 
                   return Container(
                     alignment: Alignment.center,

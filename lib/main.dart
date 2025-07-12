@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:yummeal/onboarding.dart';
+import 'package:yummeal/auth_service.dart';
 import 'welcome_page.dart';
 import 'login_page.dart';
 import 'register_page.dart';
@@ -12,16 +11,6 @@ import 'profile_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Załaduj zmienne środowiskowe z pliku .env
-  await dotenv.load(fileName: ".env");
-
-  // Inicjalizacja Supabase ze zmiennymi środowiskowymi
-  await Supabase.initialize(
-    url: dotenv.env['SUPABASE_URL']!,
-    anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
-  );
-
   runApp(const MyApp());
 }
 
@@ -45,7 +34,7 @@ class MyApp extends StatelessWidget {
           brightness: Brightness.light,
         ),
 
-        // Konfiguracja AppBar (na później)
+        // Konfiguracja AppBar
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.transparent,
           elevation: 0,
@@ -113,7 +102,7 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  final supabase = Supabase.instance.client;
+  final _authService = AuthService();
 
   @override
   void initState() {
@@ -126,29 +115,48 @@ class _SplashScreenState extends State<SplashScreen> {
     await Future.delayed(const Duration(seconds: 1));
 
     try {
-      // Sprawdź czy użytkownik jest zalogowany w Supabase
-      final user = supabase.auth.currentUser;
+      // Sprawdź czy użytkownik jest zalogowany
+      final isLoggedIn = await _authService.isLoggedIn();
+      print('Auth check - isLoggedIn: $isLoggedIn');
 
-      if (user != null) {
-        // Sprawdź czy użytkownik ma profil (ukończył onboarding)
-        final profileResponse =
-            await supabase
-                .from('user_profiles')
-                .select()
-                .eq('id', user.id)
-                .maybeSingle();
+      if (isLoggedIn) {
+        // Sprawdź lokalne dane użytkownika najpierw
+        final localUserData = await _authService.getUserData();
+        print('Auth check - localUserData: $localUserData');
+
+        // Sprawdź czy onboarding został ukończony lokalnie
+        bool hasCompletedOnboarding = false;
+
+        if (localUserData != null) {
+          // Metoda 1: Sprawdź flagę isOnboardingCompleted
+          if (localUserData['isOnboardingCompleted'] == true) {
+            hasCompletedOnboarding = true;
+            print('Auth check - onboarding completed by local flag');
+          }
+          // Metoda 2: Sprawdź czy ma podstawowe dane profilu
+          else if (localUserData['firstName'] != null &&
+              localUserData['Age'] != null &&
+              localUserData['Height'] != null &&
+              localUserData['CurrentWeight'] != null) {
+            hasCompletedOnboarding = true;
+            print('Auth check - onboarding completed by local profile data');
+          }
+        }
 
         if (mounted) {
-          if (profileResponse != null) {
+          if (hasCompletedOnboarding) {
             // Użytkownik ma profil - idź do home
+            print('Auth check - navigating to home');
             Navigator.pushReplacementNamed(context, '/home');
           } else {
             // Użytkownik zalogowany ale nie ma profilu - onboarding
+            print('Auth check - navigating to onboarding');
             Navigator.pushReplacementNamed(context, '/onboarding');
           }
         }
       } else {
         // Użytkownik nie zalogowany - welcome page
+        print('Auth check - navigating to welcome');
         if (mounted) {
           Navigator.pushReplacementNamed(context, '/welcome');
         }

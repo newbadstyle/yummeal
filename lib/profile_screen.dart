@@ -1,9 +1,7 @@
 // profile_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:image_picker/image_picker.dart';
-import 'dart:io';
+import 'package:yummeal/auth_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -13,8 +11,7 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final supabase = Supabase.instance.client;
-  final ImagePicker _picker = ImagePicker();
+  final _authService = AuthService();
 
   Map<String, dynamic>? userProfile;
   bool isLoading = true;
@@ -27,20 +24,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadUserProfile() async {
     try {
-      final user = supabase.auth.currentUser;
-      if (user == null) return;
-
-      final response =
-          await supabase
-              .from('UserProfiles')
-              .select()
-              .eq('UserId', user.id)
-              .single();
+      // Załaduj dane lokalne z AuthService
+      final data = await _authService.getUserData();
 
       setState(() {
-        userProfile = response;
+        userProfile = data;
         isLoading = false;
       });
+
+      print('Profile loaded: $data');
     } catch (e) {
       print('Error loading profile: $e');
       setState(() {
@@ -49,56 +41,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _updateAvatar() async {
-    try {
-      final XFile? image = await _picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 500,
-        maxHeight: 500,
-        imageQuality: 80,
-      );
-
-      if (image == null) return;
-
-      final user = supabase.auth.currentUser;
-      if (user == null) return;
-
-      // Upload image to Supabase Storage
-      final file = File(image.path);
-      final fileName =
-          '${user.id}_avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
-
-      await supabase.storage.from('avatars').upload(fileName, file);
-
-      // Get public URL
-      final publicUrl = supabase.storage.from('avatars').getPublicUrl(fileName);
-
-      // Update profile with new avatar URL
-      await supabase
-          .from('user_profiles')
-          .update({'avatar_url': publicUrl})
-          .eq('id', user.id);
-
-      // Reload profile
-      await _loadUserProfile();
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Avatar updated successfully')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error updating avatar: $e')));
-      }
-    }
-  }
-
   Future<void> _logout() async {
     try {
-      await supabase.auth.signOut();
+      await _authService.logout();
       if (mounted) {
         Navigator.of(
           context,
@@ -183,68 +128,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 20),
 
                     // Profile header with avatar and username
-                    GestureDetector(
-                      onTap: _updateAvatar,
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[50],
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            // Avatar
-                            Container(
-                              width: 50,
-                              height: 50,
-                              decoration: BoxDecoration(
-                                color: Colors.grey[300],
-                                borderRadius: BorderRadius.circular(25),
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(25),
-                                child:
-                                    userProfile?['avatar_url'] != null
-                                        ? Image.network(
-                                          userProfile!['avatar_url'],
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (
-                                            context,
-                                            error,
-                                            stackTrace,
-                                          ) {
-                                            return Icon(
-                                              Icons.person,
-                                              color: Colors.grey[600],
-                                              size: 30,
-                                            );
-                                          },
-                                        )
-                                        : Icon(
-                                          Icons.person,
-                                          color: Colors.grey[600],
-                                          size: 30,
-                                        ),
-                              ),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          // Avatar
+                          Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[300],
+                              borderRadius: BorderRadius.circular(25),
                             ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Text(
-                                userProfile?['FirstName'] ?? 'nutrilover',
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.black,
+                            child: Icon(
+                              Icons.person,
+                              color: Colors.grey[600],
+                              size: 30,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${userProfile?['firstName'] ?? userProfile?['FirstName'] ?? 'User'} ${userProfile?['lastName'] ?? userProfile?['LastName'] ?? ''}',
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black,
+                                  ),
                                 ),
-                              ),
+                                if (userProfile?['email'] != null)
+                                  Text(
+                                    userProfile!['email'],
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                              ],
                             ),
-                            const Icon(
-                              Icons.arrow_forward_ios,
-                              size: 16,
-                              color: Colors.grey,
-                            ),
-                          ],
-                        ),
+                          ),
+                          const Icon(
+                            Icons.arrow_forward_ios,
+                            size: 16,
+                            color: Colors.grey,
+                          ),
+                        ],
                       ),
                     ),
 
@@ -282,7 +217,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     ),
                                     SizedBox(width: 8),
                                     Text(
-                                      'Unlimited shots per day',
+                                      'Unlimited nutrition tracking',
                                       style: TextStyle(
                                         fontSize: 14,
                                         color: Colors.white,
@@ -335,6 +270,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       'Target weight',
                       '${userProfile?['TargetWeight'] ?? 60}kg',
                     ),
+                    const SizedBox(height: 1),
+                    _buildInfoItem(
+                      'Activity Level',
+                      _getActivityLevelText(userProfile?['ActivityLevel']),
+                    ),
 
                     const SizedBox(height: 32),
 
@@ -385,6 +325,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
     );
+  }
+
+  String _getActivityLevelText(int? level) {
+    switch (level) {
+      case 1:
+        return 'Sedentary';
+      case 2:
+        return 'Lightly Active';
+      case 3:
+        return 'Moderately Active';
+      case 4:
+        return 'Very Active';
+      case 5:
+        return 'Extra Active';
+      default:
+        return 'Sedentary';
+    }
   }
 
   Widget _buildMenuItem(String title, String subtitle) {
@@ -479,6 +436,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       text: currentValue,
     );
     String selectedGender = currentValue;
+    int selectedActivityLevel = userProfile?['ActivityLevel'] ?? 1;
 
     showDialog(
       context: context,
@@ -527,45 +485,79 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ],
                       )
-                      : field == 'Date of birth'
+                      : field == 'Activity Level'
                       ? Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          ElevatedButton(
-                            onPressed: () async {
-                              final date = await showDatePicker(
-                                context: context,
-                                initialDate: DateTime.now().subtract(
-                                  const Duration(days: 25 * 365),
-                                ),
-                                firstDate: DateTime.now().subtract(
-                                  const Duration(days: 100 * 365),
-                                ),
-                                lastDate: DateTime.now().subtract(
-                                  const Duration(days: 13 * 365),
-                                ),
-                              );
-                              if (date != null) {
-                                controller.text =
-                                    '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
-                              }
+                          RadioListTile<int>(
+                            title: const Text('Sedentary'),
+                            value: 1,
+                            groupValue: selectedActivityLevel,
+                            onChanged: (value) {
+                              setState(() {
+                                selectedActivityLevel = value!;
+                                controller.text = _getActivityLevelText(value);
+                              });
                             },
-                            child: Text(
-                              controller.text.isEmpty
-                                  ? 'Select Date'
-                                  : controller.text,
-                            ),
+                          ),
+                          RadioListTile<int>(
+                            title: const Text('Lightly Active'),
+                            value: 2,
+                            groupValue: selectedActivityLevel,
+                            onChanged: (value) {
+                              setState(() {
+                                selectedActivityLevel = value!;
+                                controller.text = _getActivityLevelText(value);
+                              });
+                            },
+                          ),
+                          RadioListTile<int>(
+                            title: const Text('Moderately Active'),
+                            value: 3,
+                            groupValue: selectedActivityLevel,
+                            onChanged: (value) {
+                              setState(() {
+                                selectedActivityLevel = value!;
+                                controller.text = _getActivityLevelText(value);
+                              });
+                            },
+                          ),
+                          RadioListTile<int>(
+                            title: const Text('Very Active'),
+                            value: 4,
+                            groupValue: selectedActivityLevel,
+                            onChanged: (value) {
+                              setState(() {
+                                selectedActivityLevel = value!;
+                                controller.text = _getActivityLevelText(value);
+                              });
+                            },
+                          ),
+                          RadioListTile<int>(
+                            title: const Text('Extra Active'),
+                            value: 5,
+                            groupValue: selectedActivityLevel,
+                            onChanged: (value) {
+                              setState(() {
+                                selectedActivityLevel = value!;
+                                controller.text = _getActivityLevelText(value);
+                              });
+                            },
                           ),
                         ],
                       )
                       : TextField(
                         controller: controller,
                         keyboardType:
-                            field.contains('weight') || field.contains('Height')
+                            field.contains('weight') ||
+                                    field.contains('Height') ||
+                                    field.contains('Age')
                                 ? TextInputType.number
                                 : TextInputType.text,
                         inputFormatters:
-                            field.contains('weight') || field.contains('Height')
+                            field.contains('weight') ||
+                                    field.contains('Height') ||
+                                    field.contains('Age')
                                 ? [
                                   FilteringTextInputFormatter.allow(
                                     RegExp(r'[0-9.]'),
@@ -584,7 +576,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 ElevatedButton(
                   onPressed: () async {
-                    await _updateProfile(field, controller.text);
+                    if (field == 'Activity Level') {
+                      await _updateProfile(
+                        field,
+                        selectedActivityLevel.toString(),
+                      );
+                    } else {
+                      await _updateProfile(field, controller.text);
+                    }
                     Navigator.of(context).pop();
                   },
                   child: const Text('Save'),
@@ -599,8 +598,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _updateProfile(String field, String value) async {
     try {
-      final user = supabase.auth.currentUser;
-      if (user == null) return;
+      final currentUserData = await _authService.getUserData();
+      if (currentUserData == null) return;
 
       String dbField;
       dynamic dbValue = value;
@@ -626,24 +625,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
           break;
         case 'Current weight':
           dbField = 'CurrentWeight';
-          dbValue =
-              int.tryParse(value.replaceAll('kg', '')) ??
-              0; // int zamiast double
+          dbValue = int.tryParse(value.replaceAll('kg', '')) ?? 0;
           break;
         case 'Target weight':
           dbField = 'TargetWeight';
-          dbValue =
-              int.tryParse(value.replaceAll('kg', '')) ??
-              0; // int zamiast double
+          dbValue = int.tryParse(value.replaceAll('kg', '')) ?? 0;
+          break;
+        case 'Activity Level':
+          dbField = 'ActivityLevel';
+          dbValue = int.tryParse(value) ?? 1;
           break;
         default:
           return;
       }
 
-      await supabase
-          .from('UserProfiles')
-          .update({dbField: dbValue})
-          .eq('UserId', user.id);
+      // Update local data
+      currentUserData[dbField] = dbValue;
+      await _authService.saveAuthDataPublic(currentUserData);
 
       // Reload profile
       await _loadUserProfile();

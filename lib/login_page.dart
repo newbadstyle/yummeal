@@ -54,8 +54,7 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      // WAŻNE: Wywołaj rzeczywiste logowanie przez API
-      // To sprawdzi czy użytkownik istnieje w Supabase
+      // Wywołaj logowanie przez nasze API
       final loginResult = await _authService.login(
         email: email,
         password: password,
@@ -66,13 +65,18 @@ class _LoginPageState extends State<LoginPage> {
       // Sprawdź czy widget jest nadal zamontowany
       if (!mounted) return;
 
+      // Sprawdź czy token został zapisany
+      final token = await _authService.getToken();
+      print('Token after login: ${token?.substring(0, 20)}...' ?? 'null');
+
       // Pobierz dane użytkownika po udanym zalogowaniu
       final userData = await _authService.getUserData();
+      print('User data after login: $userData');
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Login successful! Welcome back, ${userData!['email'] ?? email}',
+            'Login successful! Welcome back, ${userData?['email'] ?? email}',
           ),
           backgroundColor: Colors.green,
         ),
@@ -81,20 +85,24 @@ class _LoginPageState extends State<LoginPage> {
       // Nawigacja do strony głównej
       Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {
-      // Obsługa błędów - użytkownik nie istnieje lub złe hasło
+      // Obsługa błędów
       if (!mounted) return;
 
       String errorMessage = e.toString().replaceAll('Exception: ', '');
 
       // Popraw komunikaty błędów
       if (errorMessage.contains('401') ||
-          errorMessage.contains('Unauthorized')) {
+          errorMessage.contains('Unauthorized') ||
+          errorMessage.contains('Invalid credentials')) {
         errorMessage = 'Invalid email or password';
-      } else if (errorMessage.contains('Network error')) {
+      } else if (errorMessage.contains('Network error') ||
+          errorMessage.contains('Connection failed')) {
         errorMessage =
             'Cannot connect to server. Please check your connection.';
       } else if (errorMessage.contains('timeout')) {
         errorMessage = 'Connection timeout. Please try again.';
+      } else if (errorMessage.contains('500')) {
+        errorMessage = 'Server error. Please try again later.';
       }
 
       ScaffoldMessenger.of(context).showSnackBar(

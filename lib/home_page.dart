@@ -114,7 +114,7 @@ class _HomePageState extends State<HomePage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Welcome back!',
+                              'Welcome back, ${userData?['firstName'] ?? userData?['FirstName'] ?? 'User'}!',
                               style: GoogleFonts.poppins(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
@@ -238,13 +238,8 @@ class _HomePageState extends State<HomePage> {
                               title: 'Profile',
                               color: const Color(0xFF9C27B0),
                               onTap: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Profile feature coming soon!',
-                                    ),
-                                  ),
-                                );
+                                // Przejdź do ekranu profilu
+                                Navigator.pushNamed(context, '/profile');
                               },
                             ),
                           ],
